@@ -1,72 +1,48 @@
 const router = require('express').Router();
+const pgp = require('pg-promise')(/* options */)
+const db = pgp('postgres://postgres:123456@localhost:5432/blogdb')
 
-let articles = require('../articles.js')
+router.get('/', async (req,res) => {
 
-router.get('/', (req,res) => {
-    res.status(200).json(articles); //status(200)
+    const articles = await db.query('SELECT $1:name FROM $2:name ORDER BY $3:value', ['*', 'articles', 'dataid'])
+    res.status(200).json(articles);
+
 })
 
-router.get('/:dataId', (req, res) => {
+router.get('/:dataid', async (req, res) => {
 
-    // const { id } = req.params;
-    const articleId = req.params.dataId;
-    const article = articles.find(article => article.dataId === parseInt(articleId));
+    const articleId = parseInt(req.params.dataid);
+    const articles = await db.query('SELECT $1:name FROM $2:name' , ['*', 'articles'])
+    const article = articles.find(article => article.dataid === parseInt(articleId));
 
     if(article) {
         res.status(200).json(article);
-    }else
-        res.status(404).send('The requested URL was not found.')
-    
-
-})
-
-router.delete('/:dataId', (req, res) => {
-
-    const articleId = req.params.dataId;
-    const article = articles.find(article => article.dataId === Number(articleId));
-
-    if(article) {
-        articles = articles.filter(article => article.dataId !== Number(articleId));
-        res.status(204).end();
-    }else
-        res.status(404).send('The requested URL was not found.')
-})
-
-let newArticleId= 7;
-
-router.post('/', (req, res) => {
-    let newArticle = req.body;
-    console.log(newArticle)
-    newArticle.dataId=newArticleId;
-    newArticleId++;
-    articles.push(newArticle);
-    res.status(201).json(newArticle);
-    
-})
-
-
-router.put('/:dataId', (req, res) => {
-
-    const articleId = req.params.dataId;
-    const articleIndex = articles.findIndex(article => article.dataId === Number(articleId));
-    
-    const updatedArticle = req.body;
-    updatedArticle.dataId=articleId;
-    // updatedArticle.id=req.params.id;
-
-    
-    console.log(updatedArticle)
-
-    if(articleIndex) {
-        articles[articleIndex] = { ...articles[articleIndex], ...updatedArticle };
-        res.status(200).json({article : articles[articleIndex]});
     }else {
         res.status(404).send('The requested URL was not found.')
     }
-        
-    
+       
 })
 
+router.delete('/:dataid', async (req, res) => {
+    const articleId = req.params.dataid;
+    const deletedArticle = await db.query('DELETE FROM articles WHERE dataid=$1', [articleId]);
+    res.status(204).end();
+})
 
+router.post('/', async (req, res) => {
+
+    let {id, title, description, image} = req.body;
+    const addedArticle = await db.query('INSERT INTO articles (id, title, description, image) VALUES ($1, $2, $3, $4)', [id, title, description, image] )
+    res.status(201).json(addedArticle);
+
+})
+router.put('/:dataid', async (req, res) => {
+
+    const articleId = req.params.dataid;
+    let {title, description, image} = req.body;
+    const updatedArticle = await db.query('UPDATE articles SET title=$1, description=$2, image=$3 WHERE dataid=$4', [title, description,image, articleId]);
+    res.json(updatedArticle);
+
+})
 
 module.exports=router;
